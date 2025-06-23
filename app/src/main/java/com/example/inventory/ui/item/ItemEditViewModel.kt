@@ -21,15 +21,29 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.inventory.data.ItemsRepository
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel to retrieve and update an item from the [ItemsRepository]'s data source.
  */
 class ItemEditViewModel(
     savedStateHandle: SavedStateHandle,
+    private val itemsRepository: ItemsRepository
 ) : ViewModel() {
 
+    init {
+        viewModelScope.launch {
+            itemUiState = itemsRepository.getItemsStream(itemId)
+                .filterNotNull()
+                .first()
+                .toItemUiState(true)
+        }
+    }
     /**
      * Holds current item ui state
      */
@@ -41,6 +55,16 @@ class ItemEditViewModel(
     private fun validateInput(uiState: ItemDetails = itemUiState.itemDetails): Boolean {
         return with(uiState) {
             name.isNotBlank() && price.isNotBlank() && quantity.isNotBlank()
+        }
+    }
+    // added by me - part of implement sell item >  READ AND UPDATE DATA WITH ROOM
+    fun updateUiState (itemDetails: ItemDetails) {
+        itemUiState = ItemUiState(itemDetails = itemDetails, isEntryValid = validateInput(itemDetails))
+    }
+    // added by me - part of implement sell item >  READ AND UPDATE DATA WITH ROOM
+    suspend fun updateItem() {
+        if (validateInput(itemUiState.itemDetails)){
+            itemsRepository.updateItem(itemUiState.itemDetails.toItem())
         }
     }
 }
